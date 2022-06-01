@@ -908,7 +908,7 @@ class OrionClient:
                 raise prefect.exceptions.ObjectNotFound(http_exc=e) from e
             else:
                 raise
-        return pydantic.parse_obj_as(List[schemas.core.FlowRun], response.json())
+        return pydantic.parse_obj_as(List[schemas.responses.FlowRunResponse], response.json())
 
     async def read_work_queue(
         self,
@@ -1238,6 +1238,7 @@ class OrionClient:
         parameters: Dict[str, Any] = None,
         tags: List[str] = None,
         flow_runner: "FlowRunner" = None,
+        is_schedule_active: bool = True,
         infrastructure_document_id: UUID = None,
     ) -> UUID:
         """
@@ -1250,6 +1251,7 @@ class OrionClient:
             schedule: an optional schedule to apply to the deployment
             tags: an optional list of tags to apply to the deployment
             flow_runner: an optional flow runner to specify for this deployment
+            is_schedule_active: Whether or not the deployment schedule is active.
 
         Raises:
             httpx.RequestError: if the deployment was not created for any reason
@@ -1266,6 +1268,7 @@ class OrionClient:
             tags=list(tags or []),
             flow_runner=flow_runner.to_settings() if flow_runner else None,
             infrastructure_document_id=infrastructure_document_id,
+            is_schedule_active=is_schedule_active
         )
 
         response = await self._client.post(

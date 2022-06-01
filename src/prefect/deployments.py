@@ -178,6 +178,7 @@ class Deployment(BaseModel):
         self,
         client: OrionClient,
         stream_progress_to: Optional[TextIO] = None,
+        is_schedule_active=True
     ):
         """
         Create the deployment by registering with the API.
@@ -239,6 +240,7 @@ class Deployment(BaseModel):
             tags=self.tags,
             flow_runner=self.flow_runner,
             infrastructure_document_id=infrastructure_document_id,
+            is_schedule_active=is_schedule_active
         )
 
     class Config:

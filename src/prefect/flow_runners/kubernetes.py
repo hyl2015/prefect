@@ -284,7 +284,7 @@ class KubernetesFlowRunner(UniversalFlowRunner):
         job_manifest = copy.copy(self.job)
 
         # First, apply Prefect's customizations to build up the job
-        job_manifest = self._environment_variables().apply(job_manifest)
+        job_manifest = self._environment_variables(str(flow_run.id)).apply(job_manifest)
         job_manifest = self._job_identification(flow_run).apply(job_manifest)
         job_manifest = self._job_orchestration(flow_run).apply(job_manifest)
 
@@ -427,12 +427,14 @@ class KubernetesFlowRunner(UniversalFlowRunner):
 
         return JsonPatch(shortcuts)
 
-    def _environment_variables(self) -> JsonPatch:
+    def _environment_variables(self, flow_run_id) -> JsonPatch:
         """Produces the JSON 6902 patch to inject the current Prefect configuration as
         environment variables"""
         # Also consider any environment variables that the user wishes to inject
         # via the customizations patches
         variables = {**base_flow_run_environment(), **self.env}
+        variables['FLOW_RUN_ID'] = flow_run_id
+
         return JsonPatch(
             [
                 {

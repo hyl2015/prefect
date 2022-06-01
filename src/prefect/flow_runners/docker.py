@@ -155,7 +155,7 @@ class DockerFlowRunner(UniversalFlowRunner):
             network=self.networks[0] if self.networks else None,
             network_mode=network_mode,
             command=self._get_start_command(flow_run),
-            environment=self._get_environment_variables(network_mode),
+            environment=self._get_environment_variables(network_mode, flow_run),
             auto_remove=self.auto_remove,
             labels=self._get_labels(flow_run),
             extra_hosts=self._get_extra_hosts(docker_client),
@@ -449,8 +449,12 @@ class DockerFlowRunner(UniversalFlowRunner):
                 # Only supported by Docker v20.10.0+ which is our minimum recommend version
                 return {"host.docker.internal": "host-gateway"}
 
-    def _get_environment_variables(self, network_mode):
-        env = {**base_flow_run_environment(), **self.env}
+    def _get_environment_variables(self, network_mode, flow_run):
+        env = {
+            **base_flow_run_environment(),
+            **self.env,
+            'FLOW_RUN_ID': str(flow_run.id)
+        }
 
         # If the API URL has been set by the base environment rather than the flow
         # runner config, update the value to ensure connectivity when using a bridge

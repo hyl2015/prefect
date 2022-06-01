@@ -110,3 +110,45 @@ class FlowSort(AutoEnum):
             "NAME_DESC": db.Flow.name.desc(),
         }
         return sort_mapping[self.value]
+
+
+class DeploymentSort(AutoEnum):
+    """Defines deployment run sorting options."""
+
+    ID_DESC = AutoEnum.auto()
+    UPDATED_TIME_ASC = AutoEnum.auto()
+    UPDATED_TIME_DESC = AutoEnum.auto()
+    CREATED_TIME_ASC = AutoEnum.auto()
+    CREATED_TIME_DESC = AutoEnum.auto()
+    NAME_ASC = AutoEnum.auto()
+    NAME_DESC = AutoEnum.auto()
+
+    def as_sql_sort(self, db: "OrionDBInterface") -> ColumnElement:
+        """Return an expression used to sort flow runs"""
+        sort_mapping = {
+            "ID_DESC": db.Deployment.id.desc(),
+            "CREATED_TIME_ASC": db.Deployment.created.asc(),
+            "CREATED_TIME_DESC": db.Deployment.created.desc(),
+            "UPDATED_TIME_ASC": db.Deployment.updated.asc(),
+            "UPDATED_TIME_DESC": db.Deployment.updated.desc(),
+            "NAME_ASC": db.Deployment.name.asc(),
+            "NAME_DESC": db.Deployment.name.desc(),
+        }
+        return sort_mapping[self.value]
+
+
+class WorkQueueSort(AutoEnum):
+    """Defines work queue sorting options."""
+
+    ID_DESC = AutoEnum.auto()
+    NAME_ASC = AutoEnum.auto()
+    NAME_DESC = AutoEnum.auto()
+
+    def as_sql_sort(self, db: "OrionDBInterface") -> ColumnElement:
+        """Return an expression used to sort flow runs"""
+        sort_mapping = {
+            "ID_DESC": db.WorkQueue.id.desc(),
+            "NAME_ASC": db.WorkQueue.name.asc(),
+            "NAME_DESC": db.WorkQueue.name.desc(),
+        }
+        return sort_mapping[self.value]

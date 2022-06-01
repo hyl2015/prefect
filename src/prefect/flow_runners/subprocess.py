@@ -123,6 +123,7 @@ class SubprocessFlowRunner(UniversalFlowRunner):
     ) -> Tuple[Sequence[str], Dict[str, str]]:
         # Include the base environment and current process environment
         env = base_flow_run_environment()
+        env['FLOW_RUN_ID'] = str(flow_run_id)
         if include_os_environ:
             env.update(
                 {

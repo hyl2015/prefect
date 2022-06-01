@@ -9,7 +9,7 @@ from uuid import UUID, uuid4
 
 import pendulum
 import sqlalchemy as sa
-from sqlalchemy import delete, or_, select
+from sqlalchemy import delete, func, select, literal,literal_column,or_
 
 import prefect.orion.schemas as schemas
 from prefect.orion.database.dependencies import inject_db
@@ -182,14 +182,15 @@ async def _apply_deployment_filters(
 
 @inject_db
 async def read_deployments(
-    session: sa.orm.Session,
-    db: OrionDBInterface,
-    offset: int = None,
-    limit: int = None,
-    flow_filter: schemas.filters.FlowFilter = None,
-    flow_run_filter: schemas.filters.FlowRunFilter = None,
-    task_run_filter: schemas.filters.TaskRunFilter = None,
-    deployment_filter: schemas.filters.DeploymentFilter = None,
+        session: sa.orm.Session,
+        db: OrionDBInterface,
+        offset: int = None,
+        limit: int = None,
+        flow_filter: schemas.filters.FlowFilter = None,
+        flow_run_filter: schemas.filters.FlowRunFilter = None,
+        task_run_filter: schemas.filters.TaskRunFilter = None,
+        deployment_filter: schemas.filters.DeploymentFilter = None,
+        sort: schemas.sorting.DeploymentSort = schemas.sorting.DeploymentSort.CREATED_TIME_DESC,
 ):
     """
     Read deployments.
@@ -202,13 +203,14 @@ async def read_deployments(
         flow_run_filter: only select deployments whose flow runs match these criteria
         task_run_filter: only select deployments whose task runs match these criteria
         deployment_filter: only select deployment that match these filters
+        sort: Query sort
 
 
     Returns:
         List[db.Deployment]: deployments
     """
 
-    query = select(db.Deployment).order_by(db.Deployment.name)
+    query = select(db.Deployment).order_by(sort.as_sql_sort(db))
 
     query = await _apply_deployment_filters(
         query=query,
@@ -225,7 +227,24 @@ async def read_deployments(
         query = query.limit(limit)
 
     result = await session.execute(query)
-    return result.scalars().unique().all()
+    ret = result.scalars().unique().all()
+
+    history_query = select(db.FlowRun.deployment_id,
+                           literal_column('(array_agg(jsonb_build_array("state_type",id) order by expected_start_time desc))[1:5]').label('history'),
+                           func.sum(db.FlowRun.run_count).label('count_runs')
+                           )\
+        .where(db.FlowRun.deployment_id.in_(list(map(lambda d: d.id, ret))),
+               db.FlowRun.expected_start_time <= pendulum.now()).group_by(db.FlowRun.deployment_id)
+    history_result = await session.execute(history_query)
+
+    history_ret = history_result.all()
+    for dep in ret:
+        for history in history_ret:
+            if history[0] == dep.id:
+                dep.states = history[1]
+                dep.count_runs = history[2]
+                break
+    return ret
 
 
 @inject_db
@@ -472,7 +491,7 @@ async def _insert_scheduled_flow_runs(
 
 @inject_db
 async def check_work_queues_for_deployment(
-    db: OrionDBInterface, session: sa.orm.Session, deployment_id: UUID
+        db: OrionDBInterface, session: sa.orm.Session, deployment_id: UUID
 ) -> List[schemas.core.WorkQueue]:
     """
     Get work queues that can pick up the specified deployment.
@@ -523,3 +542,25 @@ async def check_work_queues_for_deployment(
 
     result = await session.execute(query)
     return result.scalars().unique().all()
+
+
+@inject_db
+async def read_deployment_tags(
+        session: sa.orm.Session, db: OrionDBInterface
+) -> list[str]:
+    """Reads a deployment by name.
+
+    Args:
+        session: A database session
+        name: a deployment name
+        flow_name: the name of the flow the deployment belongs to
+
+    Returns:
+        db.Deployment: the deployment
+    """
+
+    tag_db_label = func.distinct(func.jsonb_array_elements(db.Deployment.tags)).label('tag')
+    result = await session.execute(
+        select(tag_db_label).order_by(tag_db_label)
+    )
+    return result.scalars().all()

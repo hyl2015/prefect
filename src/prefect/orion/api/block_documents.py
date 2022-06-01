@@ -1,26 +1,23 @@
 """
 Routes for interacting with block objects.
 """
+import json
+import urllib
 from typing import List, Optional
 from uuid import UUID
 
 import sqlalchemy as sa
-from fastapi import (
-    Body,
-    Depends,
-    HTTPException,
-    Path,
-    Query,
-    Response,
-    responses,
-    status,
-)
+from fastapi import Body, Depends, HTTPException, Path, Response, Query, responses, status
+from fastapi.encoders import jsonable_encoder
+from prefect.blocks.storage import S3StorageBlock
 
+from prefect.orion.schemas.data import DataDocument
 from prefect.orion import models, schemas
 from prefect.orion.api import dependencies
 from prefect.orion.database.dependencies import provide_database_interface
 from prefect.orion.database.interface import OrionDBInterface
 from prefect.orion.utilities.server import OrionRouter
+from prefect.utilities.blocks import get_block_content
 
 router = OrionRouter(prefix="/block_documents", tags=["Block documents"])
 
@@ -129,3 +126,88 @@ async def update_block_document_data(
         raise HTTPException(
             status.HTTP_404_NOT_FOUND, detail="Block document not found"
         )
+
+
+@router.post(
+    "/{id}/set_default_storage_block_document", status_code=status.HTTP_204_NO_CONTENT
+)
+async def set_default_storage_block_document(
+    block_document_id: str = Path(..., description="The block document id", alias="id"),
+    session: sa.orm.Session = Depends(dependencies.get_session),
+):
+    try:
+        await models.block_documents.set_default_storage_block_document(
+            session=session, block_document_id=block_document_id
+        )
+    except ValueError as exc:
+        if "Block document not found" in str(exc):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Block document not found"
+            )
+        elif "Block schema must have the 'storage' capability" in str(exc):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Specified block document is not a storage block document",
+            )
+        else:
+            raise
+
+
+@router.post("/get_default_storage_block_document")
+async def get_default_storage_block_document(
+    response: Response,
+    session: sa.orm.Session = Depends(dependencies.get_session),
+    include_secrets: bool = Body(
+        True,
+        description="Whether to include sensitive values in the block document.",
+        embed=True,
+    ),
+) -> Optional[schemas.core.BlockDocument]:
+    block_document = await models.block_documents.get_default_storage_block_document(
+        session=session, include_secrets=include_secrets
+    )
+    if block_document is not None:
+        return block_document
+    else:
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post(
+    "/clear_default_storage_block_document", status_code=status.HTTP_204_NO_CONTENT
+)
+async def clear_default_storage_block_document(
+    session: sa.orm.Session = Depends(dependencies.get_session),
+):
+    await models.block_documents.clear_default_storage_block_document(session=session)
+
+
+@router.post("/decode_flow_data")
+async def read_flow_data(
+        blob_data: DataDocument = None,
+        session: sa.orm.Session = Depends(dependencies.get_session),
+):
+    flow_content = blob_data.decode()
+    flow_data = await get_block_content(session, flow_content)
+    return responses.JSONResponse(
+        content={"content": flow_data},
+    )
+
+
+@router.post("/decode_blob")
+async def read_s3_blob(
+        blob_data: DataDocument = None,
+        session: sa.orm.Session = Depends(dependencies.get_session),
+):
+    content = ''
+    if blob_data:
+        content = blob_data.decode()
+    if blob_data is not None:
+        if blob_data.encoding == 'blockstorage':
+            content = await get_block_content(session, content, True)
+        if isinstance(content, schemas.states.State):
+            content = content.data.decode()
+        elif isinstance(content, BaseException):
+            content = repr(content)
+    return responses.JSONResponse(
+        content={"content": jsonable_encoder(content)},
+    )

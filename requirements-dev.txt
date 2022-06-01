@@ -16,6 +16,7 @@ pytest-cov
 pytest-env
 pytest-timeout
 pytest-xdist
+python-multipart >= 0.0.5
 pytkdocs >= 0.14.2
 pyyaml
 requests

@@ -42,6 +42,16 @@ async def create_work_queue(
 
     return model
 
+@router.get("/names")
+async def read_work_queue_names(
+        session: sa.orm.Session = Depends(dependencies.get_session),
+) -> List[str]:
+    """
+    Query for work queue names
+    """
+    return await models.work_queues.read_work_queue_names(
+        session=session
+    )
 
 @router.patch("/{id}", status_code=status.HTTP_204_NO_CONTENT)
 async def update_work_queue(
@@ -111,7 +121,7 @@ async def read_work_queue_runs(
         description="An optional unique identifier for the agent making this query. If provided, the Orion API will track the last time this agent polled the work queue.",
     ),
     session: sa.orm.Session = Depends(dependencies.get_session),
-) -> List[schemas.core.FlowRun]:
+) -> List[schemas.responses.FlowRunResponse]:
     """
     Get flow runs from the work queue.
     """
@@ -134,14 +144,16 @@ async def read_work_queue_runs(
 
 @router.post("/filter")
 async def read_work_queues(
-    limit: int = dependencies.LimitBody(),
-    offset: int = Body(0, ge=0),
-    session: sa.orm.Session = Depends(dependencies.get_session),
+        sort: schemas.sorting.WorkQueueSort = Body(schemas.sorting.WorkQueueSort.NAME_DESC),
+        limit: int = dependencies.LimitBody(),
+        offset: int = Body(0, ge=0),
+        session: sa.orm.Session = Depends(dependencies.get_session),
 ) -> List[schemas.core.WorkQueue]:
     """
     Query for work queues.
     """
     return await models.work_queues.read_work_queues(
+        sort=sort,
         session=session,
         offset=offset,
         limit=limit,

@@ -1,28 +1,29 @@
 """
 Routes for interacting with flow objects.
 """
-
+from tempfile import NamedTemporaryFile
 from typing import List
 from uuid import UUID
 
 import pendulum
 import sqlalchemy as sa
-from fastapi import Depends, HTTPException, Path, Response, status
+from fastapi import Depends, HTTPException, Path, Response, status, UploadFile
 from fastapi.param_functions import Body
 
 import prefect.orion.api.dependencies as dependencies
 import prefect.orion.models as models
 import prefect.orion.schemas as schemas
 from prefect.orion.utilities.server import OrionRouter
+from prefect.utilities.inspect import export_tasks
 
 router = OrionRouter(prefix="/flows", tags=["Flows"])
 
 
 @router.post("/")
 async def create_flow(
-    flow: schemas.actions.FlowCreate,
-    response: Response,
-    session: sa.orm.Session = Depends(dependencies.get_session),
+        flow: schemas.actions.FlowCreate,
+        response: Response,
+        session: sa.orm.Session = Depends(dependencies.get_session),
 ) -> schemas.core.Flow:
     """Gracefully creates a new flow from the provided schema. If a flow with the
     same name already exists, the existing flow is returned.
@@ -39,9 +40,9 @@ async def create_flow(
 
 @router.patch("/{id}", status_code=status.HTTP_204_NO_CONTENT)
 async def update_flow(
-    flow: schemas.actions.FlowUpdate,
-    flow_id: UUID = Path(..., description="The flow id", alias="id"),
-    session: sa.orm.Session = Depends(dependencies.get_session),
+        flow: schemas.actions.FlowUpdate,
+        flow_id: UUID = Path(..., description="The flow id", alias="id"),
+        session: sa.orm.Session = Depends(dependencies.get_session),
 ):
     """
     Updates a flow.
@@ -55,11 +56,11 @@ async def update_flow(
 
 @router.post("/count")
 async def count_flows(
-    flows: schemas.filters.FlowFilter = None,
-    flow_runs: schemas.filters.FlowRunFilter = None,
-    task_runs: schemas.filters.TaskRunFilter = None,
-    deployments: schemas.filters.DeploymentFilter = None,
-    session: sa.orm.Session = Depends(dependencies.get_session),
+        flows: schemas.filters.FlowFilter = None,
+        flow_runs: schemas.filters.FlowRunFilter = None,
+        task_runs: schemas.filters.TaskRunFilter = None,
+        deployments: schemas.filters.DeploymentFilter = None,
+        session: sa.orm.Session = Depends(dependencies.get_session),
 ) -> int:
     """
     Count flows.
@@ -75,8 +76,8 @@ async def count_flows(
 
 @router.get("/name/{name}")
 async def read_flow_by_name(
-    name: str = Path(..., description="The name of the flow"),
-    session: sa.orm.Session = Depends(dependencies.get_session),
+        name: str = Path(..., description="The name of the flow"),
+        session: sa.orm.Session = Depends(dependencies.get_session),
 ) -> schemas.core.Flow:
     """
     Get a flow by name.
@@ -91,8 +92,8 @@ async def read_flow_by_name(
 
 @router.get("/{id}")
 async def read_flow(
-    flow_id: UUID = Path(..., description="The flow id", alias="id"),
-    session: sa.orm.Session = Depends(dependencies.get_session),
+        flow_id: UUID = Path(..., description="The flow id", alias="id"),
+        session: sa.orm.Session = Depends(dependencies.get_session),
 ) -> schemas.core.Flow:
     """
     Get a flow by id.
@@ -107,14 +108,14 @@ async def read_flow(
 
 @router.post("/filter")
 async def read_flows(
-    limit: int = dependencies.LimitBody(),
-    offset: int = Body(0, ge=0),
-    flows: schemas.filters.FlowFilter = None,
-    flow_runs: schemas.filters.FlowRunFilter = None,
-    task_runs: schemas.filters.TaskRunFilter = None,
-    deployments: schemas.filters.DeploymentFilter = None,
-    sort: schemas.sorting.FlowSort = Body(schemas.sorting.FlowSort.NAME_ASC),
-    session: sa.orm.Session = Depends(dependencies.get_session),
+        limit: int = dependencies.LimitBody(),
+        offset: int = Body(0, ge=0),
+        flows: schemas.filters.FlowFilter = None,
+        flow_runs: schemas.filters.FlowRunFilter = None,
+        task_runs: schemas.filters.TaskRunFilter = None,
+        deployments: schemas.filters.DeploymentFilter = None,
+        sort: schemas.sorting.FlowSort = Body(schemas.sorting.FlowSort.NAME_ASC),
+        session: sa.orm.Session = Depends(dependencies.get_session),
 ) -> List[schemas.core.Flow]:
     """
     Query for flows.
@@ -133,8 +134,8 @@ async def read_flows(
 
 @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_flow(
-    flow_id: UUID = Path(..., description="The flow id", alias="id"),
-    session: sa.orm.Session = Depends(dependencies.get_session),
+        flow_id: UUID = Path(..., description="The flow id", alias="id"),
+        session: sa.orm.Session = Depends(dependencies.get_session),
 ):
     """
     Delete a flow by id.
@@ -144,3 +145,18 @@ async def delete_flow(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Flow not found"
         )
+
+
+@router.post("/inspect")
+async def inspect_flow(
+        script_file: UploadFile
+):
+    with NamedTemporaryFile(
+            mode='wb',
+            prefix='flow',
+            suffix=".py",
+    ) as tmpfile:
+        contents = await script_file.read()
+        tmpfile.write(contents)
+        tmpfile.flush()
+        return export_tasks(tmpfile.name)

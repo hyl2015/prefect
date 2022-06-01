@@ -86,6 +86,7 @@ async def read_work_queue_by_name(
 async def read_work_queues(
     db: OrionDBInterface,
     session: sa.orm.Session,
+    sort: schemas.sorting.WorkQueueSort = schemas.sorting.WorkQueueSort.NAME_DESC,
     offset: int = None,
     limit: int = None,
 ):
@@ -96,12 +97,13 @@ async def read_work_queues(
         session (sa.orm.Session): A database session
         offset (int): Query offset
         limit(int): Query limit
+        sort: Query sort
 
     Returns:
         List[db.WorkQueue]: WorkQueues
     """
 
-    query = select(db.WorkQueue).order_by(db.WorkQueue.name)
+    query = select(db.WorkQueue).order_by(sort.as_sql_sort(db))
 
     if offset is not None:
         query = query.offset(offset)
@@ -228,4 +230,25 @@ async def get_runs_in_work_queue(
         ),
         limit=open_concurrency_slots,
         sort=schemas.sorting.FlowRunSort.NEXT_SCHEDULED_START_TIME_ASC,
+        include_deployment_name=True
     )
+
+
+@inject_db
+async def read_work_queue_names(
+        db: OrionDBInterface,
+        session: sa.orm.Session
+):
+    """
+    Read queue names.
+
+    Args:
+        session (sa.orm.Session): A database session
+
+    Returns:
+        List[str]: Queue names
+    """
+
+    query = select(db.WorkQueue.name).order_by(db.WorkQueue.name)
+    result = await session.execute(query)
+    return result.scalars().unique().all()

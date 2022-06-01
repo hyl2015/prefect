@@ -403,3 +403,31 @@ async def preview(path: Path):
         app.console.print(f"[green]Preview for {name}[/]:\n")
         print(await deployment.flow_runner.preview(flow_run))
         print()
+
+
+# async def _create_deployment(deployment: Deployment, client: OrionClient):
+#     manifest = await _deployment_to_manifest(deployment)
+#     stylized_name = _stylized_flow_name(deployment, manifest.flow_name)
+#
+#     flow_data = DataDocument.encode("package-manifest", manifest)
+#
+#     if "image" in manifest.__fields__:
+#         flow_runner = deployment.flow_runner.copy(update={"image": manifest.image})
+#     else:
+#         flow_runner = deployment.flow_runner
+#
+#     flow_data = DataDocument.encode("package-manifest", manifest)
+#
+#     app.console.print(f"Registering deployment {stylized_name} with the server...")
+#     flow_id = await client.create_flow_from_name(manifest.flow_name)
+#     deployment_id = await client.create_deployment(
+#         flow_id=flow_id,
+#         name=deployment.name or manifest.flow_name,
+#         flow_data=flow_data,
+#         schedule=deployment.schedule,
+#         parameters=deployment.parameters,
+#         tags=deployment.tags,
+#         flow_runner=flow_runner,
+#     )
+#     # TODO: Display a link to the UI if available
+#     app.console.print(f"Created deployment {stylized_name} ({deployment_id}).")

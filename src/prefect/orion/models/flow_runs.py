@@ -228,6 +228,7 @@ async def read_flow_runs(
     offset: int = None,
     limit: int = None,
     sort: schemas.sorting.FlowRunSort = schemas.sorting.FlowRunSort.ID_DESC,
+    include_deployment_name:bool = False
 ):
     """
     Read flow runs.
@@ -246,8 +247,16 @@ async def read_flow_runs(
     Returns:
         List[db.FlowRun]: flow runs
     """
-    query = select(db.FlowRun).order_by(sort.as_sql_sort(db))
 
+    if include_deployment_name:
+        query = select(db.FlowRun, db.Deployment.name) \
+            .order_by(sort.as_sql_sort(db)).join(db.Deployment,
+                                             db.Deployment.id == db.FlowRun.deployment_id)
+        if deployment_filter:
+            query = query.where(deployment_filter.as_sql_filter(db))
+    else:
+        query = select(db.FlowRun) \
+            .order_by(sort.as_sql_sort(db))
     if columns:
         query = query.options(load_only(*columns))
 
@@ -256,7 +265,7 @@ async def read_flow_runs(
         flow_filter=flow_filter,
         flow_run_filter=flow_run_filter,
         task_run_filter=task_run_filter,
-        deployment_filter=deployment_filter,
+        deployment_filter=None if include_deployment_name else deployment_filter,
         db=db,
     )
 
@@ -265,9 +274,44 @@ async def read_flow_runs(
 
     if limit is not None:
         query = query.limit(limit)
-
     result = await session.execute(query)
-    return result.scalars().unique().all()
+    if include_deployment_name:
+        ret = []
+        for r in result.all():
+            flow_run = r[0]
+            ret.append(schemas.responses.FlowRunResponse(
+                id=flow_run.id,
+                updated=flow_run.updated,
+                created=flow_run.created,
+                name=flow_run.name,
+                flow_id=flow_run.flow_id,
+                state_id=flow_run.state_id,
+                deployment_id=flow_run.deployment_id,
+                flow_version=flow_run.flow_version,
+                parameters=flow_run.parameters,
+                idempotency_key=flow_run.idempotency_key,
+                context=flow_run.context,
+                empirical_policy=flow_run.empirical_policy,
+                empirical_config=flow_run.empirical_config,
+                tags=flow_run.tags,
+                parent_task_run_id=flow_run.parent_task_run_id,
+                state_type=flow_run.state_type,
+                run_count=flow_run.run_count,
+                expected_start_time=flow_run.expected_start_time,
+                next_scheduled_start_time=flow_run.next_scheduled_start_time,
+                start_time=flow_run.start_time,
+                end_time=flow_run.end_time,
+                total_run_time=flow_run.total_run_time,
+                estimated_run_time=flow_run.estimated_run_time,
+                estimated_start_time_delta=flow_run.estimated_start_time_delta,
+                auto_scheduled=flow_run.auto_scheduled,
+                flow_runner=flow_run.flow_runner,
+                state=flow_run.state,
+                deployment_name=r[1]
+            ))
+    else:
+        ret = result.scalars().unique().all()
+    return ret
 
 
 class DependencyResult(PrefectBaseModel):

@@ -972,8 +972,30 @@ class BlockDocumentFilterBlockTypeId(PrefectFilterBaseModel):
         return filters
 
 
+class BlockDocumentFilterName(PrefectFilterBaseModel):
+    """Filter by `FlowRun.name`."""
+    like_: str = Field(
+        None,
+        description=(
+            "A case-insensitive partial match. For example, "
+            " passing 'marvin' will match "
+            "'marvin', 'sad-Marvin', and 'marvin-robot'."
+        ),
+        example="marvin",
+    )
+
+    def _get_filter_list(self, db: "OrionDBInterface") -> List:
+        filters = []
+        if self.like_ is not None:
+            filters.append(db.BlockDocument.name.ilike(f"%{self.like_}%"))
+        return filters
+
+
 class BlockDocumentFilter(PrefectFilterBaseModel):
     """Filter BlockDocuments. Only BlockDocuments matching all criteria will be returned"""
+    name: Optional[BlockDocumentFilterName] = Field(
+        None, description="Filter criteria for `BlockDocument.name`"
+    )
 
     is_anonymous: Optional[BlockDocumentFilterIsAnonymous] = Field(
         # default is to exclude anonymous blocks
@@ -993,6 +1015,8 @@ class BlockDocumentFilter(PrefectFilterBaseModel):
             filters.append(self.is_anonymous.as_sql_filter(db))
         if self.block_type_id is not None:
             filters.append(self.block_type_id.as_sql_filter(db))
+        if self.name is not None:
+            filters.append(self.name.as_sql_filter(db))
 
         return filters
 

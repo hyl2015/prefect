@@ -166,7 +166,7 @@ async def read_flow_runs(
     task_runs: schemas.filters.TaskRunFilter = None,
     deployments: schemas.filters.DeploymentFilter = None,
     session: sa.orm.Session = Depends(dependencies.get_session),
-) -> List[schemas.core.FlowRun]:
+) -> List[schemas.responses.FlowRunResponse]:
     """
     Query for flow runs.
     """
@@ -179,6 +179,7 @@ async def read_flow_runs(
         offset=offset,
         limit=limit,
         sort=sort,
+        include_deployment_name=True
     )
 
 
