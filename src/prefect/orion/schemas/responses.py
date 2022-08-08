@@ -119,3 +119,32 @@ class OrchestrationResult(PrefectBaseModel):
     state: Optional[schemas.states.State]
     status: SetStateStatus
     details: StateResponseDetails
+
+
+class DeploymentResponse(
+    schemas.core.Deployment.subclass(
+        name="DeploymentResponse",
+    )
+):
+    """Data used by the Orion API to create a deployment."""
+
+    states: List[List[str]] = Field(
+        default=list(), description="Deployment last 5 states"
+    )
+    count_runs: int = Field(
+        default=0,
+        description="The number of runs in the specified state during the interval.",
+    )
+
+
+class FlowRunResponse(
+    schemas.core.FlowRun.subclass(
+        name="FlowRunResponse",
+    )
+):
+    """Data used by the Orion API to get a flowRun."""
+
+    deployment_name: str = Field(
+        ...,
+        description="The name of deployment",
+    )

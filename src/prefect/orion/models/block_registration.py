@@ -23,11 +23,14 @@ async def _install_protected_system_blocks(session):
         prefect.blocks.system.Secret,
         prefect.filesystems.LocalFileSystem,
         prefect.infrastructure.Process,
+        prefect.blocks.bright.FlowResult,
+        prefect.blocks.bright.FlowSource,
+        prefect.blocks.bright.Minio,
+        prefect.blocks.bright.NovuNotificationBlock,
     ]:
         async with session.begin():
             block_type = block._to_block_type()
             block_type.is_protected = True
-
             block_type = await models.block_types.create_block_type(
                 session=session, block_type=block_type, override=True
             )

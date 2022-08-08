@@ -27,6 +27,7 @@ BLOCKS_TO_MIGRATE = [
             "type": "object",
             "properties": {
                 "bucket": {"title": "Bucket", "type": "string"},
+                "aws_endpoint_url": {"title": "Aws Endpoint Url", "type": "string"},
                 "aws_access_key_id": {"title": "Aws Access Key Id", "type": "string"},
                 "aws_secret_access_key": {
                     "title": "Aws Secret Access Key",

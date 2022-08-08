@@ -25,6 +25,7 @@ from uuid import UUID, uuid4
 import anyio
 import pendulum
 from anyio import start_blocking_portal
+from prefect.blocks.core import Block
 from typing_extensions import Literal
 
 import prefect
@@ -585,7 +586,17 @@ async def orchestrate_flow_run(
                     client=client,
                     timeout_scope=timeout_scope,
                 ) as flow_run_context:
+                    old_blocks = parameters.pop('blocks', [])
+                    if old_blocks:
+                        blocks = {}
+                        resp_blocks = await client.read_block_documents(
+                            block_document_ids=list(map(lambda block: block['id'], old_blocks)),
+                            include_secrets=True)
+                        for block in resp_blocks:
+                            blocks[block.name] = Block._from_block_document(block)
+                        parameters['blocks'] = blocks
                     args, kwargs = parameters_to_args_kwargs(flow.fn, parameters)
+
                     logger.debug(
                         f"Executing flow {flow.name!r} for flow run {flow_run.name!r}..."
                     )

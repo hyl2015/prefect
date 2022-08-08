@@ -213,6 +213,7 @@ async def read_flow_runs(
     offset: int = None,
     limit: int = None,
     sort: schemas.sorting.FlowRunSort = schemas.sorting.FlowRunSort.ID_DESC,
+    include_deployment_name: bool = False,
 ):
     """
     Read flow runs.
@@ -231,7 +232,16 @@ async def read_flow_runs(
     Returns:
         List[db.FlowRun]: flow runs
     """
-    query = select(db.FlowRun).order_by(sort.as_sql_sort(db))
+    if include_deployment_name:
+        query = (
+            select(db.FlowRun, db.Deployment.name)
+            .order_by(sort.as_sql_sort(db))
+            .join(db.Deployment, db.Deployment.id == db.FlowRun.deployment_id)
+        )
+        if deployment_filter:
+            query = query.where(deployment_filter.as_sql_filter(db))
+    else:
+        query = select(db.FlowRun).order_by(sort.as_sql_sort(db))
 
     if columns:
         query = query.options(load_only(*columns))
@@ -241,7 +251,7 @@ async def read_flow_runs(
         flow_filter=flow_filter,
         flow_run_filter=flow_run_filter,
         task_run_filter=task_run_filter,
-        deployment_filter=deployment_filter,
+        deployment_filter=None if include_deployment_name else deployment_filter,
         db=db,
     )
 
@@ -250,9 +260,19 @@ async def read_flow_runs(
 
     if limit is not None:
         query = query.limit(limit)
-
     result = await session.execute(query)
-    return result.scalars().unique().all()
+    if include_deployment_name:
+        ret = []
+        for r in result.all():
+            flow_run = r[0]
+            ret.append(
+                schemas.responses.FlowRunResponse(
+                    **flow_run.__dict__, deployment_name=r[1]
+                )
+            )
+    else:
+        ret = result.scalars().unique().all()
+    return ret
 
 
 class DependencyResult(PrefectBaseModel):

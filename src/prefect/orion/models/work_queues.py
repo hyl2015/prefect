@@ -90,6 +90,7 @@ async def read_work_queues(
     session: AsyncSession,
     offset: int = None,
     limit: int = None,
+    sort: schemas.sorting.WorkQueueSort = schemas.sorting.WorkQueueSort.NAME_DESC,
     work_queue_filter: schemas.filters.WorkQueueFilter = None,
 ):
     """
@@ -100,11 +101,12 @@ async def read_work_queues(
         offset: Query offset
         limit: Query limit
         work_queue_filter: only select work queues matching these filters
+        sort: Query sort
     Returns:
         List[db.WorkQueue]: WorkQueues
     """
 
-    query = select(db.WorkQueue).order_by(db.WorkQueue.name)
+    query = select(db.WorkQueue).order_by(sort.as_sql_sort(db))
 
     if offset is not None:
         query = query.offset(offset)
@@ -171,11 +173,11 @@ async def delete_work_queue(
 
 @inject_db
 async def get_runs_in_work_queue(
-    session: AsyncSession,
-    work_queue_id: UUID,
-    db: OrionDBInterface,
-    limit: int = None,
-    scheduled_before: datetime.datetime = None,
+        session: AsyncSession,
+        work_queue_id: UUID,
+        db: OrionDBInterface,
+        limit: int = None,
+        scheduled_before: datetime.datetime = None,
 ):
     """
     Get runs from a work queue.
@@ -201,7 +203,15 @@ async def get_runs_in_work_queue(
             scheduled_before=scheduled_before,
         )
         result = await session.execute(query)
-        return result.scalars().unique().all()
+        ret = []
+        for r in result.all():
+            flow_run = r[0]
+            ret.append(
+                schemas.responses.FlowRunResponse(
+                    **flow_run.__dict__, deployment_name=r[2]
+                )
+            )
+        return ret
 
     # if the work queue has a filter, it's a deprecated tag-based work queue
     # and uses an old approach
@@ -284,6 +294,7 @@ async def _legacy_get_runs_in_work_queue(
         ),
         limit=limit,
         sort=schemas.sorting.FlowRunSort.NEXT_SCHEDULED_START_TIME_ASC,
+        include_deployment_name=True,
     )
 
 
@@ -352,3 +363,20 @@ async def read_work_queue_status(
         last_polled=work_queue.last_polled,
         health_check_policy=health_check_policy,
     )
+
+
+@inject_db
+async def read_work_queue_names(db: OrionDBInterface, session: AsyncSession):
+    """
+    Read queue names.
+
+    Args:
+        session (AsyncSession): A database session
+
+    Returns:
+        List[str]: Queue names
+    """
+
+    query = select(db.WorkQueue.name).order_by(db.WorkQueue.name)
+    result = await session.execute(query)
+    return result.scalars().unique().all()

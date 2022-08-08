@@ -448,6 +448,8 @@ class S3(WritableFileSystem, WritableDeploymentStorage):
             settings["key"] = self.aws_access_key_id.get_secret_value()
         if self.aws_secret_access_key:
             settings["secret"] = self.aws_secret_access_key.get_secret_value()
+        if self.aws_endpoint_url:
+            settings["client_kwargs"] = {"endpoint_url": self.aws_endpoint_url}
         self._remote_file_system = RemoteFileSystem(
             basepath=f"s3://{self.bucket_path}", settings=settings
         )

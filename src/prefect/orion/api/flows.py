@@ -1,12 +1,12 @@
 """
 Routes for interacting with flow objects.
 """
-
+from tempfile import NamedTemporaryFile
 from typing import List
 from uuid import UUID
 
 import pendulum
-from fastapi import Depends, HTTPException, Path, Response, status
+from fastapi import Depends, HTTPException, UploadFile, Path, Response, status
 from fastapi.param_functions import Body
 
 import prefect.orion.api.dependencies as dependencies
@@ -15,6 +15,7 @@ import prefect.orion.schemas as schemas
 from prefect.orion.database.dependencies import provide_database_interface
 from prefect.orion.database.interface import OrionDBInterface
 from prefect.orion.utilities.server import OrionRouter
+from prefect.utilities.inspect import export_tasks
 
 router = OrionRouter(prefix="/flows", tags=["Flows"])
 
@@ -156,3 +157,16 @@ async def delete_flow(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Flow not found"
         )
+
+
+@router.post("/inspect")
+async def inspect_flow(script_file: UploadFile):
+    with NamedTemporaryFile(
+        mode="wb",
+        prefix="flow",
+        suffix=".py",
+    ) as tmpfile:
+        contents = await script_file.read()
+        tmpfile.write(contents)
+        tmpfile.flush()
+        return export_tasks(tmpfile.name)

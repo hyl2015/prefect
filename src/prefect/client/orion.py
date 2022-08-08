@@ -1171,6 +1171,7 @@ class OrionClient:
     async def read_block_documents(
         self,
         block_schema_type: Optional[str] = None,
+        block_document_ids: Optional[list[str]] = None,
         offset: Optional[int] = None,
         limit: Optional[int] = None,
         include_secrets: bool = True,
@@ -1180,6 +1181,7 @@ class OrionClient:
 
         Args:
             block_schema_type: an optional block schema type
+            block_document_ids: an optional block document ids
             offset: an offset
             limit: the number of blocks to return
             include_secrets (bool): whether to include secret values
@@ -1192,14 +1194,21 @@ class OrionClient:
         Returns:
             A list of block documents
         """
+        filters = dict(
+            block_schema_type=block_schema_type,
+            offset=offset,
+            limit=limit,
+            include_secrets=include_secrets,
+        )
+        if block_document_ids:
+            filters["block_documents"] = {
+                "id": {
+                    "any_": block_document_ids
+                }
+            }
         response = await self._client.post(
             f"/block_documents/filter",
-            json=dict(
-                block_schema_type=block_schema_type,
-                offset=offset,
-                limit=limit,
-                include_secrets=include_secrets,
-            ),
+            json=filters,
         )
         return pydantic.parse_obj_as(List[BlockDocument], response.json())
 

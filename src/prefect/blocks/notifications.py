@@ -17,7 +17,7 @@ class NotificationBlock(Block, ABC):
     _block_schema_capabilities = ["notify"]
 
     @abstractmethod
-    async def notify(self, body: str, subject: Optional[str] = None):
+    async def notify(self, body: str, subject: Optional[str] = None, notification=None):
         """
         Send a notification
         """
@@ -65,7 +65,7 @@ class AppriseNotificationBlock(NotificationBlock, ABC):
         self._apprise_client.add(self.url.get_secret_value())
 
     @sync_compatible
-    async def notify(self, body: str, subject: Optional[str] = None):
+    async def notify(self, body: str, subject: Optional[str] = None, notification=None):
         await self._apprise_client.async_notify(
             body=body, title=subject, notify_type=PrefectNotifyType.DEFAULT
         )

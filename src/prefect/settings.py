@@ -472,6 +472,12 @@ up should be memoized. Setting to False may result in slower server start
 up times.
 """
 
+PREFECT_RESULT_STORAGE_DOCUMENT_ID = Setting(
+    str,
+    default=None,
+    description="""Store flow and task result"""
+)
+
 PREFECT_LOGGING_LEVEL = Setting(
     str,
     default="INFO",
@@ -812,6 +818,22 @@ PREFECT_ORION_SERVICES_FLOW_RUN_NOTIFICATIONS_ENABLED = Setting(
 """Whether or not to start the flow run notifications service in the Orion application. 
 If disabled, you will need to run this service separately to send flow run notifications.
 """
+
+PREFECT_ORION_SERVICES_FLOW_RUN_NOTIFICATIONS_TARGET_ID_PREFIX = Setting(
+    str,
+    default="user__",
+)
+
+
+PREFECT_ORION_SERVICES_FLOW_RUN_NOTIFICATIONS_TARGET_NAME_PREFIX = Setting(
+    str,
+    default="user_name__",
+)
+
+PREFECT_ORION_SERVICES_FLOW_RUN_NOTIFICATIONS_ENABLE_TAG = Setting(
+    str,
+    default="__enable__notification__",
+)
 
 # Collect all defined settings
 

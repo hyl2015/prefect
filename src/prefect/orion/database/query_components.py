@@ -143,6 +143,7 @@ class BaseQueryComponents(ABC):
         limit_per_queue: Optional[int] = None,
         work_queue_ids: Optional[List[UUID]] = None,
         scheduled_before: Optional[datetime.datetime] = None,
+        include_deployment_name: bool = False,
     ):
         """
         Returns all scheduled runs in work queues, subject to provided parameters.
@@ -192,6 +193,7 @@ class BaseQueryComponents(ABC):
             sa.select(
                 sa.orm.aliased(db.FlowRun, scheduled_flow_runs),
                 db.WorkQueue.id.label("work_queue_id"),
+                db.Deployment.name.label('deployment_name')
             )
             .select_from(db.WorkQueue)
             .join(
@@ -200,6 +202,7 @@ class BaseQueryComponents(ABC):
                 isouter=True,
             )
             .join(scheduled_flow_runs, join_criteria)
+            .join(db.Deployment, db.Deployment.id == scheduled_flow_runs.c.deployment_id)
             .where(
                 db.WorkQueue.is_paused.is_(False),
                 db.WorkQueue.id.in_(work_queue_ids) if work_queue_ids else True,
@@ -521,6 +524,7 @@ class AsyncPostgresQueryComponents(BaseQueryComponents):
                 db.Flow.name.label("flow_name"),
                 db.FlowRun.id.label("flow_run_id"),
                 db.FlowRun.name.label("flow_run_name"),
+                db.FlowRun.tags.label("flow_run_tags"),
                 db.FlowRun.parameters.label("flow_run_parameters"),
                 db.FlowRunState.type.label("flow_run_state_type"),
                 db.FlowRunState.name.label("flow_run_state_name"),

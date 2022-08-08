@@ -45,6 +45,17 @@ async def create_work_queue(
     return model
 
 
+@router.get("/names")
+async def read_work_queue_names(
+    db: OrionDBInterface = Depends(provide_database_interface),
+) -> List[str]:
+    """
+    Query for work queue names
+    """
+    async with db.session_context(begin_transaction=True) as session:
+        return await models.work_queues.read_work_queue_names(session=session)
+
+
 @router.patch("/{id}", status_code=status.HTTP_204_NO_CONTENT)
 async def update_work_queue(
     work_queue: schemas.actions.WorkQueueUpdate,
@@ -120,7 +131,7 @@ async def read_work_queue_runs(
         description="A header to indicate this request came from the Prefect UI.",
     ),
     db: OrionDBInterface = Depends(provide_database_interface),
-) -> List[schemas.core.FlowRun]:
+) -> List[schemas.responses.FlowRunResponse]:
     """
     Get flow runs from the work queue.
     """

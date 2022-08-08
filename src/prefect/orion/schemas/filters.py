@@ -759,6 +759,25 @@ class DeploymentFilterIsScheduleActive(PrefectFilterBaseModel):
         return filters
 
 
+class DeploymentFilterCreated(PrefectFilterBaseModel):
+    """Filter by `Deployment.created`."""
+
+    before_: DateTimeTZ = Field(
+        None, description="Only include deploy create at or before this time"
+    )
+    after_: DateTimeTZ = Field(
+        None, description="Only include deploy create at or after this time"
+    )
+
+    def _get_filter_list(self, db: "OrionDBInterface") -> List:
+        filters = []
+        if self.before_ is not None:
+            filters.append(db.Deployment.created <= self.before_)
+        if self.after_ is not None:
+            filters.append(db.Deployment.created >= self.after_)
+        return filters
+
+
 class DeploymentFilterTags(PrefectOperatorFilterBaseModel):
     """Filter by `Deployment.tags`."""
 
@@ -802,6 +821,9 @@ class DeploymentFilter(PrefectOperatorFilterBaseModel):
     work_queue_name: Optional[DeploymentFilterWorkQueueName] = Field(
         default=None, description="Filter criteria for `Deployment.work_queue_name`"
     )
+    created: Optional[DeploymentFilterCreated] = Field(
+        None, description="Filter criteria for `Deployment.created`"
+    )
 
     def _get_filter_list(self, db: "OrionDBInterface") -> List:
         filters = []
@@ -816,6 +838,8 @@ class DeploymentFilter(PrefectOperatorFilterBaseModel):
             filters.append(self.tags.as_sql_filter(db))
         if self.work_queue_name is not None:
             filters.append(self.work_queue_name.as_sql_filter(db))
+        if self.created is not None:
+            filters.append(self.created.as_sql_filter(db))
 
         return filters
 
@@ -982,13 +1006,19 @@ class BlockTypeFilterSlug(PrefectFilterBaseModel):
     """Filter by `BlockType.slug`"""
 
     any_: Optional[List[str]] = Field(
-        default=None, description=("A list of slugs to match")
+        default=None, description="A list of slugs to match"
+    )
+
+    not_any_: Optional[List[str]] = Field(
+        default=None, description="A list of slugs to exclude"
     )
 
     def _get_filter_list(self, db: "OrionDBInterface") -> List:
         filters = []
         if self.any_ is not None:
             filters.append(db.BlockType.slug.in_(self.any_))
+        if self.not_any_ is not None:
+            filters.append(db.BlockType.slug.not_in(self.not_any_))
 
         return filters
 
@@ -1124,6 +1154,7 @@ class BlockDocumentFilterIsAnonymous(PrefectFilterBaseModel):
         if self.eq_ is not None:
             filters.append(db.BlockDocument.is_anonymous.is_(self.eq_))
         return filters
+
 
 
 class BlockDocumentFilterBlockTypeId(PrefectFilterBaseModel):

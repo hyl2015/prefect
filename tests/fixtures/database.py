@@ -146,7 +146,7 @@ async def failed_flow_run_with_deployment(session, flow, deployment):
 
 @pytest.fixture
 async def failed_flow_run_with_deployment_with_no_more_retries(
-    session, flow, deployment
+        session, flow, deployment
 ):
     flow_run_model = schemas.core.FlowRun(
         state=schemas.states.Failed(),
@@ -279,7 +279,7 @@ async def infrastructure_document_id_2(orion_client):
 
 @pytest.fixture
 async def deployment(
-    session, flow, flow_function, infrastructure_document_id, storage_document_id
+        session, flow, flow_function, infrastructure_document_id, storage_document_id
 ):
     def hello(name: str):
         pass
@@ -419,7 +419,7 @@ async def block_document(session, block_schema, block_type_x):
 
 
 async def commit_task_run_state(
-    session, task_run, state_type: states.StateType, state_details=None
+        session, task_run, state_type: states.StateType, state_details=None
 ):
     if state_type is None:
         return None
@@ -443,7 +443,7 @@ async def commit_task_run_state(
 
 
 async def commit_flow_run_state(
-    session, flow_run, state_type: states.StateType, state_details=None
+        session, flow_run, state_type: states.StateType, state_details=None
 ):
     if state_type is None:
         return None
@@ -469,16 +469,16 @@ async def commit_flow_run_state(
 @pytest.fixture
 def initialize_orchestration(flow):
     async def initializer(
-        session,
-        run_type,
-        initial_state_type,
-        proposed_state_type,
-        run_override=None,
-        run_tags=None,
-        initial_details=None,
-        proposed_details=None,
-        flow_retries: int = None,
-        flow_run_count: int = None,
+            session,
+            run_type,
+            initial_state_type,
+            proposed_state_type,
+            run_override=None,
+            run_tags=None,
+            initial_details=None,
+            proposed_details=None,
+            flow_retries: int = None,
+            flow_run_count: int = None,
     ):
         flow_create_kwargs = {}
         empirical_policy = {}
@@ -563,7 +563,7 @@ async def notifier_block(orion_client):
         # singleton block name
         _block_document_name = "Debug Print Notification"
 
-        async def notify(self, subject: str, body: str):
+        async def notify(self, subject: str, body: str, notification=None):
             print(body)
 
     block = DebugPrintNotification()

@@ -2,5 +2,6 @@
 
 import prefect.blocks.notifications
 import prefect.blocks.system
+import prefect.blocks.bright
 
-__all__ = ["notifications", "storage", "system"]
+__all__ = ["notifications", "bright", "system"]

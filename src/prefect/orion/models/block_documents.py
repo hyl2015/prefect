@@ -7,6 +7,7 @@ from typing import Dict, List, Optional, Tuple
 from uuid import UUID, uuid4
 
 import sqlalchemy as sa
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import prefect.orion.models as models
@@ -16,7 +17,11 @@ from prefect.orion.database.interface import OrionDBInterface
 from prefect.orion.database.orm_models import ORMBlockDocument
 from prefect.orion.schemas.actions import BlockDocumentReferenceCreate
 from prefect.orion.schemas.core import BlockDocument, BlockDocumentReference
-from prefect.orion.schemas.filters import BlockSchemaFilter
+from prefect.orion.schemas.filters import (
+    BlockDocumentFilterIsAnonymous,
+    BlockSchemaFilter,
+)
+
 from prefect.orion.utilities.database import UUID as UUIDTypeDecorator
 from prefect.utilities.collections import dict_to_flatdict, flatdict_to_dict
 from prefect.utilities.names import obfuscate_string
@@ -254,6 +259,42 @@ async def read_block_document_by_name(
     return block_documents[0] if block_documents else None
 
 
+async def _apply_block_documents_filters(query,
+                                         db: OrionDBInterface,
+                                         block_document_filter: Optional[schemas.filters.BlockDocumentFilter] = None,
+                                         block_schema_filter: Optional[schemas.filters.BlockSchemaFilter] = None,
+                                         block_type_filter: Optional[schemas.filters.BlockTypeFilter] = None,
+                                         ):
+    if block_type_filter is not None:
+        block_type_exists_clause = sa.select(db.BlockType).where(
+            db.BlockType.id == db.BlockDocument.block_type_id,
+            block_type_filter.as_sql_filter(db),
+        )
+        query = query.where(
+            block_type_exists_clause.exists()
+        )
+
+    if block_document_filter is None:
+        block_document_filter = schemas.filters.BlockDocumentFilter(
+            is_anonymous=BlockDocumentFilterIsAnonymous(eq_=False)
+        )
+
+    query = query.where(
+        block_document_filter.as_sql_filter(db)
+    )
+
+    if block_schema_filter is not None:
+        exists_clause = sa.select(db.BlockSchema).where(
+            db.BlockSchema.id == db.BlockDocument.block_schema_id,
+            block_schema_filter.as_sql_filter(db),
+        )
+        query = query.where(
+            exists_clause.exists()
+        )
+    return query
+
+
+
 @inject_db
 async def read_block_documents(
     session: AsyncSession,
@@ -280,24 +321,11 @@ async def read_block_documents(
         block_document_filter.as_sql_filter(db)
     )
 
-    if block_type_filter is not None:
-        block_type_exists_clause = sa.select(db.BlockType).where(
-            db.BlockType.id == db.BlockDocument.block_type_id,
-            block_type_filter.as_sql_filter(db),
-        )
-        filtered_block_documents_query = filtered_block_documents_query.where(
-            block_type_exists_clause.exists()
-        )
-
-    if block_schema_filter is not None:
-        block_schema_exists_clause = sa.select(db.BlockSchema).where(
-            db.BlockSchema.id == db.BlockDocument.block_schema_id,
-            block_schema_filter.as_sql_filter(db),
-        )
-        filtered_block_documents_query = filtered_block_documents_query.where(
-            block_schema_exists_clause.exists()
-        )
-
+    filtered_block_documents_query = await _apply_block_documents_filters(query=filtered_block_documents_query,
+                                                                          block_document_filter=block_document_filter,
+                                                                          block_schema_filter=block_schema_filter,
+                                                                          block_type_filter=block_type_filter,
+                                                                          db=db)
     if offset is not None:
         filtered_block_documents_query = filtered_block_documents_query.offset(offset)
 
@@ -403,6 +431,34 @@ async def read_block_documents(
         )
         block_document.block_schema = corresponding_block_schema
     return fully_constructed_block_documents
+
+
+@inject_db
+async def count_block_documents(
+        session: AsyncSession,
+        db: OrionDBInterface,
+        block_document_filter: Optional[schemas.filters.BlockDocumentFilter] = None,
+        block_schema_filter: Optional[schemas.filters.BlockSchemaFilter] = None,
+        block_type_filter: Optional[schemas.filters.BlockTypeFilter] = None,
+) -> int:
+    """
+    Count block documents.
+    Returns:
+        int: the number of block documents matching filters
+    """
+
+    query = select(sa.func.count(sa.text("*"))).select_from(db.BlockDocument)
+
+    query = await _apply_block_documents_filters(
+        query=query,
+        block_document_filter=block_document_filter,
+        block_schema_filter=block_schema_filter,
+        block_type_filter=block_type_filter,
+        db=db,
+    )
+
+    result = await session.execute(query)
+    return result.scalar()
 
 
 @inject_db

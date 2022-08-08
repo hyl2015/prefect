@@ -95,6 +95,7 @@ class FlowRunNotifications(LoopService):
             await block.notify(
                 subject="Prefect flow run notification",
                 body=message,
+                notification=notification
             )
 
             self.logger.debug(
