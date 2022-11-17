@@ -1,7 +1,7 @@
-from abc import ABC
 from typing import Optional
 
 import httpx
+from fastapi.encoders import jsonable_encoder
 from pydantic import Field, SecretStr
 
 import prefect.settings
@@ -162,10 +162,10 @@ class NovuNotificationBlock(NotificationBlock):
             await self._client.post(self.apiUrl, json={
                 "name": self.templateName,
                 "to": target_id,
-                "payload": {
+                "payload": jsonable_encoder({
                     "creator": target_name,
                     **notification_dict
-                }
+                })
             })
         else:
             self._logger.warning("No flow creator found, skip")
