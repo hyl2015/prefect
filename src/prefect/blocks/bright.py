@@ -11,7 +11,40 @@ from prefect.logging import get_logger
 from prefect.utilities.asyncutils import sync_compatible
 
 
-class FlowResult(S3):
+class Minio(S3):
+    """
+    Store data as a file on a remote file system.
+
+    Supports any remote file system supported by `fsspec`. The file system is specified
+    using a protocol. For example, "s3://my-bucket/my-folder/" will use S3.
+
+    Example:
+        Load stored remote file system config:
+        ```python
+        from prefect.filesystems import RemoteFileSystem
+
+        remote_file_system_block = RemoteFileSystem.load("BLOCK_NAME")
+        ```
+    """
+    _block_type_name = "Minio"
+    endpoint_url: str = Field(None, title="AWS Endpoint Url")
+
+    @property
+    def filesystem(self) -> RemoteFileSystem:
+        settings = {}
+        if self.aws_access_key_id:
+            settings["key"] = self.aws_access_key_id.get_secret_value()
+        if self.aws_secret_access_key:
+            settings["secret"] = self.aws_secret_access_key.get_secret_value()
+        if self.endpoint_url:
+            settings["client_kwargs"] = {"endpoint_url": self.endpoint_url}
+        self._remote_file_system = RemoteFileSystem(
+            basepath=f"s3://{self.bucket_path}", settings=settings
+        )
+        return self._remote_file_system
+
+
+class FlowResult(Minio):
     """
     Store data as a file on a remote file system.
 
@@ -29,7 +62,7 @@ class FlowResult(S3):
     _block_type_name = "Flow Result"
 
 
-class FlowSource(S3):
+class FlowSource(Minio):
     """
     Store data as a file on a remote file system.
 
@@ -45,51 +78,6 @@ class FlowSource(S3):
         ```
     """
     _block_type_name = "Flow Source"
-
-
-class Minio(S3):
-    """
-    Store data as a file on a remote file system.
-
-    Supports any remote file system supported by `fsspec`. The file system is specified
-    using a protocol. For example, "s3://my-bucket/my-folder/" will use S3.
-
-    Example:
-        Load stored remote file system config:
-        ```python
-        from prefect.filesystems import RemoteFileSystem
-
-        remote_file_system_block = RemoteFileSystem.load("BLOCK_NAME")
-        ```
-    """
-    _block_type_name = "Minio"
-    access_key_id: Optional[SecretStr] = Field(
-        default=None,
-        title="AWS Access Key ID",
-        description="Equivalent to the AWS_ACCESS_KEY_ID environment variable.",
-        example="AKIAIOSFODNN7EXAMPLE",
-    )
-    endpoint_url: str = Field(None, title="AWS Endpoint Url")
-    secret_access_key: Optional[SecretStr] = Field(
-        default=None,
-        title="AWS Secret Access Key",
-        description="Equivalent to the AWS_SECRET_ACCESS_KEY environment variable.",
-        example="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
-    )
-
-    @property
-    def filesystem(self) -> RemoteFileSystem:
-        settings = {}
-        if self.access_key_id:
-            settings["key"] = self.access_key_id.get_secret_value()
-        if self.secret_access_key:
-            settings["secret"] = self.secret_access_key.get_secret_value()
-        if self.endpoint_url:
-            settings["client_kwargs"] = {"endpoint_url": self.endpoint_url}
-        self._remote_file_system = RemoteFileSystem(
-            basepath=f"s3://{self.bucket_path}", settings=settings
-        )
-        return self._remote_file_system
 
 
 class NovuNotificationBlock(NotificationBlock):

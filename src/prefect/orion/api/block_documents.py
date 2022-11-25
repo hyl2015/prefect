@@ -12,7 +12,7 @@ from prefect.orion.api import dependencies
 from prefect.orion.database.dependencies import provide_database_interface
 from prefect.orion.database.interface import OrionDBInterface
 from prefect.orion.utilities.server import OrionRouter
-from prefect.results import PersistedResult, PersistedResultBlob
+from prefect.results import PersistedResult, PersistedResultBlob, LiteralResult
 from prefect.utilities.blocks import get_flow_content
 
 router = OrionRouter(prefix="/block_documents", tags=["Block documents"])
@@ -169,9 +169,15 @@ async def read_flow_data(
 
 @router.post("/decode_blob")
 async def read_s3_blob(
-        blob_data: PersistedResult = None,
+        blob_data: PersistedResult | LiteralResult = None,
         db: OrionDBInterface = Depends(provide_database_interface),
 ):
+    if isinstance(blob_data, LiteralResult):
+        return responses.JSONResponse(
+            content={
+                "content": blob_data.value
+            },
+        )
     async with db.session_context(begin_transaction=True) as session:
         filesystem_document = await models.block_documents.read_block_document_by_id(
             session=session,

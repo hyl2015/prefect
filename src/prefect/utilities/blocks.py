@@ -14,6 +14,7 @@ async def get_flow_content(
     )
     storage_block = Block._from_block_document(storage_document)
     flow_storage_path = entrypoint.split(":")[0]
+    print(storage_block)
     flow_data_bytes = await storage_block.read_path(flow_storage_path)
     flow_data = flow_data_bytes.decode("utf-8")
     return flow_data
