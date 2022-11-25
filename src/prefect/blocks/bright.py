@@ -27,7 +27,7 @@ class Minio(S3):
         ```
     """
     _block_type_name = "Minio"
-    endpoint_url: str = Field(None, title="AWS Endpoint Url")
+    aws_endpoint_url: str = Field(None, title="AWS Endpoint Url")
 
     @property
     def filesystem(self) -> RemoteFileSystem:
@@ -36,8 +36,8 @@ class Minio(S3):
             settings["key"] = self.aws_access_key_id.get_secret_value()
         if self.aws_secret_access_key:
             settings["secret"] = self.aws_secret_access_key.get_secret_value()
-        if self.endpoint_url:
-            settings["client_kwargs"] = {"endpoint_url": self.endpoint_url}
+        if self.aws_endpoint_url:
+            settings["client_kwargs"] = {"endpoint_url": self.aws_endpoint_url}
         self._remote_file_system = RemoteFileSystem(
             basepath=f"s3://{self.bucket_path}", settings=settings
         )
