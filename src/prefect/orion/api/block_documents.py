@@ -1,10 +1,11 @@
 """
 Routes for interacting with block objects.
 """
-from typing import List, Optional
+from typing import List, Optional, Union
 from uuid import UUID
 
 from fastapi import Body, Depends, HTTPException, responses, Path, Query, status
+from fastapi.encoders import jsonable_encoder
 
 from prefect.blocks.core import Block
 from prefect.orion import models, schemas
@@ -169,13 +170,13 @@ async def read_flow_data(
 
 @router.post("/decode_blob")
 async def read_s3_blob(
-        blob_data: PersistedResult | LiteralResult = None,
+        blob_data: Union[PersistedResult, LiteralResult] = None,
         db: OrionDBInterface = Depends(provide_database_interface),
 ):
     if isinstance(blob_data, LiteralResult):
         return responses.JSONResponse(
             content={
-                "content": blob_data.value
+                "content": blob_data.json()
             },
         )
     async with db.session_context(begin_transaction=True) as session:
@@ -191,6 +192,6 @@ async def read_s3_blob(
     obj = serialized_result.serializer.loads(serialized_result.data)
     return responses.JSONResponse(
         content={
-            "content": obj
+            "content": jsonable_encoder(obj)
         },
     )
